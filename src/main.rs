@@ -17,7 +17,9 @@ use scraper::{Html, Selector};
 async fn main() {
     let url = std::env::args().nth(1).expect("URL should be provided");
 
-    let base_idx = url.find("/thumbnails").unwrap();
+    let base_idx = url
+        .find("/thumbnails")
+        .expect("URL should contain '/thumbnails'");
     let base_url = url.split_at(base_idx).0;
 
     let client = Client::new();
@@ -37,22 +39,23 @@ async fn main() {
 
 /// Given a complete URL finds if there is another following page
 fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
-    let links = Selector::parse(".navmenu > a").unwrap();
+    let links = Selector::parse(".navmenu > a").expect("parsed to find next page button");
     html.select(&links)
-        .map(|l| l.attr("href").unwrap())
-        .map(|l| l.rsplit('=').next().unwrap())
+        .map(|l| l.attr("href").expect("href"))
+        .map(|l| l.rsplit('=').next().expect("link should have a page query"))
         .next_back()
-        .map(|l| l.parse::<usize>().unwrap())
+        .map(|l| l.parse::<usize>().expect("parsed page as usize"))
         .take_if(|i| *i == page_idx + 1)
 }
 
 async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
     println!("Getting links from page {page_idx}");
-    let res = client.get(url).send().await.unwrap();
+    let res = client.get(url).send().await.expect("GET request succesful");
 
-    let body = res.text().await.unwrap();
+    let body = res.text().await.expect("get the response text");
     let document = Html::parse_document(&body);
-    let img_links = Selector::parse(".thumbnails > table > tbody > tr > td > a > img").unwrap();
+    let img_links = Selector::parse(".thumbnails > table > tbody > tr > td > a > img")
+        .expect("parsed to find thumbnail link");
 
     let next_page_links = match get_next_page(&document, page_idx) {
         Some(n) => {
@@ -71,9 +74,9 @@ async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<
 }
 
 async fn get_image(url: &str, client: &Client, idx: usize) {
-    let res = client.get(url).send().await.unwrap();
-    let data = res.bytes().await.unwrap();
+    let res = client.get(url).send().await.expect("GET request succesful");
+    let data = res.bytes().await.expect("get the response bytes");
 
-    let mut f = File::create(format!("../downloads/{idx}.jpg")).unwrap();
-    f.write_all(&data).unwrap();
+    let mut f = File::create(format!("../downloads/{idx}.jpg")).expect("created file");
+    f.write_all(&data).expect("wrote the bytes to file");
 }
