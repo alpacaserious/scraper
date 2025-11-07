@@ -1,4 +1,5 @@
 #![feature(string_remove_matches)]
+#![warn(clippy::pedantic)]
 use std::{fs::File, io::Write};
 
 use reqwest::Client;
@@ -14,19 +15,13 @@ use scraper::{Html, Selector};
 //     https://daisy-ridley.org/photos/albums/userpics/10001/574591655_daisy-1.jpg
 #[tokio::main]
 async fn main() {
-    let url = std::env::args()
-        .skip(1)
-        .next()
-        .expect("URL should be provided");
+    let url = std::env::args().nth(1).expect("URL should be provided");
 
     let base_idx = url.find("/thumbnails").unwrap();
-    let (base_url, sub_url) = url.split_at(base_idx);
+    let base_url = url.split_at(base_idx).0;
 
     let client = Client::new();
-    let _ = get_pages(&url, &client).await;
-
-    // TODO: scrape more pages
-    let mut links = get_links_from_url(&url, &client).await;
+    let mut links = get_links_from_url(&url, &client, 1).await;
 
     for l in &mut links {
         l.remove_matches("thumb_");
@@ -36,33 +31,42 @@ async fn main() {
     }
 
     // for (i, link) in links.iter().enumerate() {
-    //     get_image(&link, &client, i).await;
+    //     get_image(link, &client, i).await;
     // }
 }
 
-async fn get_pages(url: &str, client: &Client) -> Vec<String> {
-    let res = client.get(url).send().await.unwrap();
-
-    let body = res.text().await.unwrap();
-    let doc = Html::parse_document(&body);
+/// Given a complete URL finds if there is another following page
+fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
     let links = Selector::parse(".navmenu > a").unwrap();
-
-    doc.select(&links)
-        .for_each(|l| println!("{}", l.attr("href").unwrap()));
-    vec![]
+    html.select(&links)
+        .map(|l| l.attr("href").unwrap())
+        .map(|l| l.rsplit('=').next().unwrap())
+        .next_back()
+        .map(|l| l.parse::<usize>().unwrap())
+        .take_if(|i| *i == page_idx + 1)
 }
 
-async fn get_links_from_url(url: &str, client: &Client) -> Vec<String> {
+async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
+    println!("Getting links from page {page_idx}");
     let res = client.get(url).send().await.unwrap();
 
     let body = res.text().await.unwrap();
     let document = Html::parse_document(&body);
     let img_links = Selector::parse(".thumbnails > table > tbody > tr > td > a > img").unwrap();
 
+    let next_page_links = match get_next_page(&document, page_idx) {
+        Some(n) => {
+            let next_url = format!("{url}?page={n}");
+            Box::pin(get_links_from_url(&next_url, client, page_idx + 1)).await
+        }
+        None => vec![],
+    };
+
     document
         .select(&img_links)
         .filter_map(|l| l.attr("src"))
         .map(|l| l.to_string())
+        .chain(next_page_links)
         .collect::<Vec<_>>()
 }
 
