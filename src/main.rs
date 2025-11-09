@@ -37,7 +37,7 @@ async fn main() {
     // }
 }
 
-/// Given a complete URL finds if there is another following page
+/// Finds if there is another following page from the current HTML layout
 fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
     let links = Selector::parse(".navmenu > a").expect("parsed to find next page button");
     html.select(&links)
