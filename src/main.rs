@@ -16,13 +16,17 @@ use scraper::{Html, Selector};
 #[tokio::main]
 async fn main() {
     let url = std::env::args().nth(1).expect("URL should be provided");
+    let client = Client::new();
 
+    download_gallery(&url, &client).await;
+}
+
+async fn download_gallery(url: &str, client: &Client) {
     let base_idx = url
         .find("/thumbnails")
         .expect("URL should contain '/thumbnails'");
     let base_url = url.split_at(base_idx).0;
 
-    let client = Client::new();
     let mut links = get_links_from_url(&url, &client, 1).await;
 
     for l in &mut links {
