@@ -37,11 +37,11 @@ async fn download_gallery(url: &str, client: &Client) {
     }
 
     let title = get_title(&url, &client).await;
-    println!("{title}");
+    std::fs::create_dir(&title).expect("created gallery folder");
 
-    // for (i, link) in links.iter().enumerate() {
-    //     get_image(link, &client, title, i).await;
-    // }
+    for (i, link) in links.iter().enumerate() {
+        get_image(link, &client, &title, i).await;
+    }
 }
 
 async fn get_title(url: &str, client: &Client) -> String {
@@ -99,6 +99,6 @@ async fn get_image(url: &str, client: &Client, gallery: &str, idx: usize) {
     let res = client.get(url).send().await.expect("GET request succesful");
     let data = res.bytes().await.expect("get the response bytes");
 
-    let mut f = File::create(format!("{gallery}/{idx}.jpg")).expect("created file");
+    let mut f = File::create(format!("{gallery}/{}.jpg", idx + 1)).expect("created file");
     f.write_all(&data).expect("wrote the bytes to file");
 }
