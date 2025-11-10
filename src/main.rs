@@ -32,9 +32,27 @@ async fn main() {
         println!("{l}");
     }
 
+    let title = get_title(&url, &client).await;
+    println!("{title}");
+
     // for (i, link) in links.iter().enumerate() {
     //     get_image(link, &client, i).await;
     // }
+}
+
+async fn get_title(url: &str, client: &Client) -> String {
+    let res = client.get(url).send().await.expect("GET request succesful");
+
+    let body = res.text().await.expect("get the response text");
+    let document = Html::parse_document(&body);
+    let titles = Selector::parse("td > h2").expect("parsed to find thumbnail link");
+
+    let title = document
+        .select(&titles)
+        .last()
+        .map(|t| t.inner_html())
+        .unwrap();
+    title.replace('"', &String::new())
 }
 
 /// Finds if there is another following page from the current HTML layout
