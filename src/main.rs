@@ -36,9 +36,9 @@ async fn download_category(url: &str, client: &Client) {
     let albums = get_alb_links(url, client, 1).await;
     println!("Found {} albums", albums.len());
 
-    for a in albums {
-        let link = format!("{base_url}/{a}");
-        download_album(&link, &client).await;
+    for (i, a) in albums.iter().enumerate() {
+        print!("\rDownloading [{}] of [{}]", i + 1, albums.len());
+        download_album(&format!("{base_url}/{a}"), client).await;
     }
 }
 
@@ -60,7 +60,7 @@ async fn get_alb_links(url: &str, client: &Client, page_idx: usize) -> Vec<Strin
     document
         .select(&alb_links)
         .filter_map(|l| l.attr("href"))
-        .map(|l| l.to_string())
+        .map(std::string::ToString::to_string)
         .chain(next_page_links)
         .collect()
 }
@@ -71,7 +71,7 @@ async fn download_album(url: &str, client: &Client) {
         .expect("URL should contain '/thumbnails'");
     let base_url = url.split_at(base_idx).0;
 
-    let mut links = get_links_from_url(&url, &client, 1).await;
+    let mut links = get_links_from_url(url, client, 1).await;
 
     for l in &mut links {
         l.remove_matches("thumb_");
@@ -81,12 +81,12 @@ async fn download_album(url: &str, client: &Client) {
 
     println!("Found {} images", links.len());
 
-    let title = get_title(&url, &client).await;
+    let title = get_title(url, client).await;
     std::fs::create_dir(&title).expect("created gallery folder");
 
     for (i, link) in links.iter().enumerate() {
-        print!("\r\x1b[0KDownloading [{}] of [{}]", i + 1, links.len());
-        get_image(link, &client, &title, i).await;
+        print!("\rDownloading [{}] of [{}]", i + 1, links.len());
+        get_image(link, client, &title, i).await;
     }
     println!();
 }
@@ -100,10 +100,10 @@ async fn get_title(url: &str, client: &Client) -> String {
 
     let title = document
         .select(&titles)
-        .last()
+        .next_back()
         .map(|t| t.inner_html())
         .unwrap();
-    title.replace('"', &String::new())
+    title.replace('"', "")
 }
 
 /// Finds if there is another following page from the current HTML layout
@@ -137,7 +137,7 @@ async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<
     document
         .select(&img_links)
         .filter_map(|l| l.attr("src"))
-        .map(|l| l.to_string())
+        .map(std::string::ToString::to_string)
         .chain(next_page_links)
         .collect()
 }
