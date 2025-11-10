@@ -33,15 +33,18 @@ async fn download_gallery(url: &str, client: &Client) {
         l.remove_matches("thumb_");
         l.insert(0, '/');
         l.insert_str(0, base_url);
-        println!("{l}");
     }
+
+    println!("Found {} images", links.len());
 
     let title = get_title(&url, &client).await;
     std::fs::create_dir(&title).expect("created gallery folder");
 
     for (i, link) in links.iter().enumerate() {
+        print!("\r\x1b[0KDownloading [{}] of [{}]", i + 1, links.len());
         get_image(link, &client, &title, i).await;
     }
+    println!();
 }
 
 async fn get_title(url: &str, client: &Client) -> String {
