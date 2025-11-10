@@ -40,7 +40,7 @@ async fn download_gallery(url: &str, client: &Client) {
     println!("{title}");
 
     // for (i, link) in links.iter().enumerate() {
-    //     get_image(link, &client, i).await;
+    //     get_image(link, &client, title, i).await;
     // }
 }
 
@@ -95,10 +95,10 @@ async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<
         .collect::<Vec<_>>()
 }
 
-async fn get_image(url: &str, client: &Client, idx: usize) {
+async fn get_image(url: &str, client: &Client, gallery: &str, idx: usize) {
     let res = client.get(url).send().await.expect("GET request succesful");
     let data = res.bytes().await.expect("get the response bytes");
 
-    let mut f = File::create(format!("../downloads/{idx}.jpg")).expect("created file");
+    let mut f = File::create(format!("{gallery}/{idx}.jpg")).expect("created file");
     f.write_all(&data).expect("wrote the bytes to file");
 }
