@@ -20,7 +20,7 @@ async fn main() {
 
     if url.contains("/thumbnails.php") {
         download_album(&url, &client).await;
-    } else if url.contains("?cat=") {
+    } else if url.contains("/index.php?cat=") {
         download_category(&url, &client).await;
     } else {
         println!("Unsupported URL");
