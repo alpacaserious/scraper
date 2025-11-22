@@ -75,7 +75,7 @@ async fn download_album(url: &str, client: &Client) {
     let body = res.text().await.expect("get the response text");
     let html = Html::parse_document(&body);
 
-    let mut links = get_links_from_html(url, &html, 1).await;
+    let mut links = get_links_from_url(url, client, 1).await;
 
     for l in &mut links {
         l.remove_matches("thumb_");
@@ -113,13 +113,16 @@ fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
     html.select(&links)
         .map(|l| l.attr("href").expect("href"))
         .map(|l| l.rsplit('=').next().expect("link should have a page query"))
-        .next_back()
         .map(|l| l.parse::<usize>().expect("parsed page as usize"))
-        .take_if(|i| *i == page_idx + 1)
+        .find(|i| *i == page_idx + 1)
 }
 
-async fn get_links_from_html(url: &str, html: &Html, page_idx: usize) -> Vec<String> {
+async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
     println!("Getting links from page {page_idx}");
+
+    let res = client.get(url).send().await.expect("GET request succesful");
+    let body = res.text().await.expect("get the response text");
+    let html = Html::parse_document(&body);
 
     let img_links = Selector::parse(".thumbnails > table > tbody > tr > td > a > img")
         .expect("parsed to find thumbnail link");
@@ -127,7 +130,7 @@ async fn get_links_from_html(url: &str, html: &Html, page_idx: usize) -> Vec<Str
     let next_page_links = match get_next_page(&html, page_idx) {
         Some(n) => {
             let next_url = format!("{url}&page={n}");
-            Box::pin(get_links_from_html(&next_url, html, page_idx + 1)).await
+            Box::pin(get_links_from_url(&next_url, client, page_idx + 1)).await
         }
         None => vec![],
     };
