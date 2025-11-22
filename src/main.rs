@@ -1,4 +1,5 @@
 #![feature(string_remove_matches)]
+#![feature(iter_intersperse)]
 #![warn(clippy::pedantic)]
 use std::{fs::File, io::Write};
 
@@ -85,26 +86,38 @@ async fn download_album(url: &str, client: &Client) {
 
     println!("Found {} images", links.len());
 
-    let title = get_title(&html).await;
-    std::fs::create_dir(&title).expect("created gallery folder");
+    let path = get_path(&html).await;
+    std::fs::create_dir_all(&path).expect("created gallery folder");
 
     for (i, link) in links.iter().enumerate() {
         print!("\rDownloading [{}] of [{}]", i + 1, links.len());
-        get_image(link, client, &title, i).await;
+        get_image(link, client, &path, i).await;
     }
     println!();
 }
 
-async fn get_title(html: &Html) -> String {
-    let titles = Selector::parse("td > h2").expect("parsed to find thumbnail link");
+/// From a given HTML, for example returns `Public Appearances/2024/Gallery_Title`
+async fn get_path(html: &Html) -> String {
+    let paths = Selector::parse(".tableh1-statlink > .statlink > a").expect("parsed album path");
+    let mut path_elems: Vec<String> = html
+        .select(&paths)
+        .skip(1)
+        .map(|s| s.inner_html())
+        .collect();
 
-    let title = html
-        .select(&titles)
-        .next_back()
-        .map(|t| t.inner_html())
-        .unwrap();
-    let title = title.replace('"', "");
-    title.replace("/", "_")
+    // Replace unwanted chars in title
+    if let Some(title) = path_elems.last_mut() {
+        *title = title.replace('"', "").replace("/", "_");
+    }
+
+    let mut path: String = path_elems
+        .iter()
+        .intersperse(&String::from('/'))
+        .cloned()
+        .collect();
+    path.push_str("/");
+
+    path
 }
 
 /// Finds if there is another following page from the current HTML layout
