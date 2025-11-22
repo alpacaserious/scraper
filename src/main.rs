@@ -71,7 +71,11 @@ async fn download_album(url: &str, client: &Client) {
         .expect("URL should contain '/thumbnails'");
     let base_url = url.split_at(base_idx).0;
 
-    let mut links = get_links_from_url(url, client, 1).await;
+    let res = client.get(url).send().await.expect("GET request succesful");
+    let body = res.text().await.expect("get the response text");
+    let html = Html::parse_document(&body);
+
+    let mut links = get_links_from_html(url, &html, 1).await;
 
     for l in &mut links {
         l.remove_matches("thumb_");
@@ -81,7 +85,7 @@ async fn download_album(url: &str, client: &Client) {
 
     println!("Found {} images", links.len());
 
-    let title = get_title(url, client).await;
+    let title = get_title(&html).await;
     std::fs::create_dir(&title).expect("created gallery folder");
 
     for (i, link) in links.iter().enumerate() {
@@ -91,14 +95,10 @@ async fn download_album(url: &str, client: &Client) {
     println!();
 }
 
-async fn get_title(url: &str, client: &Client) -> String {
-    let res = client.get(url).send().await.expect("GET request succesful");
-
-    let body = res.text().await.expect("get the response text");
-    let document = Html::parse_document(&body);
+async fn get_title(html: &Html) -> String {
     let titles = Selector::parse("td > h2").expect("parsed to find thumbnail link");
 
-    let title = document
+    let title = html
         .select(&titles)
         .next_back()
         .map(|t| t.inner_html())
@@ -117,25 +117,21 @@ fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
         .take_if(|i| *i == page_idx + 1)
 }
 
-async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
+async fn get_links_from_html(url: &str, html: &Html, page_idx: usize) -> Vec<String> {
     println!("Getting links from page {page_idx}");
-    let res = client.get(url).send().await.expect("GET request succesful");
 
-    let body = res.text().await.expect("get the response text");
-    let document = Html::parse_document(&body);
     let img_links = Selector::parse(".thumbnails > table > tbody > tr > td > a > img")
         .expect("parsed to find thumbnail link");
 
-    let next_page_links = match get_next_page(&document, page_idx) {
+    let next_page_links = match get_next_page(&html, page_idx) {
         Some(n) => {
             let next_url = format!("{url}&page={n}");
-            Box::pin(get_links_from_url(&next_url, client, page_idx + 1)).await
+            Box::pin(get_links_from_html(&next_url, html, page_idx + 1)).await
         }
         None => vec![],
     };
 
-    document
-        .select(&img_links)
+    html.select(&img_links)
         .filter_map(|l| l.attr("src"))
         .map(std::string::ToString::to_string)
         .chain(next_page_links)
