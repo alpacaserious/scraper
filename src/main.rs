@@ -103,7 +103,8 @@ async fn get_title(html: &Html) -> String {
         .next_back()
         .map(|t| t.inner_html())
         .unwrap();
-    title.replace('"', "")
+    let title = title.replace('"', "");
+    title.replace("/", "_")
 }
 
 /// Finds if there is another following page from the current HTML layout
