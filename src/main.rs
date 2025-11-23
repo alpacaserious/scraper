@@ -76,21 +76,21 @@ async fn download_album(url: &str, client: &Client) {
     let body = res.text().await.expect("get the response text");
     let html = Html::parse_document(&body);
 
-    let mut links = get_links_from_url(url, client, 1).await;
+    let mut imgs = get_imgs_from_url(url, client, 1).await;
 
-    for l in &mut links {
-        l.remove_matches("thumb_");
-        l.insert(0, '/');
-        l.insert_str(0, base_url);
+    for i in &mut imgs {
+        i.remove_matches("thumb_");
+        i.insert(0, '/');
+        i.insert_str(0, base_url);
     }
 
-    println!("Found {} images", links.len());
+    println!("Found {} images", imgs.len());
 
     let path = get_path(&html).await;
     std::fs::create_dir_all(&path).expect("created gallery folder");
 
-    for (i, link) in links.iter().enumerate() {
-        print!("\rDownloading [{}] of [{}]", i + 1, links.len());
+    for (i, link) in imgs.iter().enumerate() {
+        print!("\rDownloading [{}] of [{}]", i + 1, imgs.len());
         get_image(link, client, &path, i).await;
     }
     println!();
@@ -130,7 +130,7 @@ fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
         .find(|i| *i == page_idx + 1)
 }
 
-async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
+async fn get_imgs_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
     println!("Getting links from page {page_idx}");
 
     let res = client.get(url).send().await.expect("GET request succesful");
@@ -143,7 +143,7 @@ async fn get_links_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<
     let next_page_links = match get_next_page(&html, page_idx) {
         Some(n) => {
             let next_url = format!("{url}&page={n}");
-            Box::pin(get_links_from_url(&next_url, client, page_idx + 1)).await
+            Box::pin(get_imgs_from_url(&next_url, client, page_idx + 1)).await
         }
         None => vec![],
     };
