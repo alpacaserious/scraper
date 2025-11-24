@@ -86,7 +86,7 @@ async fn download_album(url: &str, client: &Client) {
 
     println!("Found {} images", imgs.len());
 
-    let path = get_path(&html).await;
+    let path = get_path(&html);
     std::fs::create_dir_all(&path).expect("created gallery folder");
 
     for (i, link) in imgs.iter().enumerate() {
@@ -97,7 +97,7 @@ async fn download_album(url: &str, client: &Client) {
 }
 
 /// From a given HTML, for example returns `Public Appearances/2024/Gallery_Title`
-async fn get_path(html: &Html) -> String {
+fn get_path(html: &Html) -> String {
     let paths = Selector::parse(".tableh1-statlink > .statlink > a").expect("parsed album path");
     let mut path_elems: Vec<String> = html
         .select(&paths)
@@ -107,7 +107,7 @@ async fn get_path(html: &Html) -> String {
 
     // Replace unwanted chars in title
     if let Some(title) = path_elems.last_mut() {
-        *title = title.replace('"', "").replace("/", "_");
+        *title = title.replace('"', "").replace('/', "_");
     }
 
     let mut path: String = path_elems
@@ -115,7 +115,7 @@ async fn get_path(html: &Html) -> String {
         .intersperse(&String::from('/'))
         .cloned()
         .collect();
-    path.push_str("/");
+    path.push('/');
 
     path
 }
