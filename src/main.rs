@@ -98,7 +98,7 @@ async fn download_album(url: &str, client: &Client) {
 
 /// From a given HTML, for example returns `Public Appearances/2024/Gallery_Title`
 fn get_path(html: &Html) -> String {
-    let paths = Selector::parse(".tableh1-statlink > .statlink > a").expect("parsed album path");
+    let paths = Selector::parse("td > .statlink > a").expect("parsed album path");
     let mut path_elems: Vec<String> = html
         .select(&paths)
         .skip(1)
