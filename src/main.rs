@@ -38,7 +38,7 @@ async fn download_category(url: &str, client: &Client) {
     println!("Found {} albums", albums.len());
 
     for (i, a) in albums.iter().enumerate() {
-        print!("\rDownloading [{}] of [{}]", i + 1, albums.len());
+        println!("Downloading album [{}] of [{}]", i + 1, albums.len());
         download_album(&format!("{base_url}/{a}"), client).await;
     }
 }
@@ -84,13 +84,13 @@ async fn download_album(url: &str, client: &Client) {
         i.insert_str(0, base_url);
     }
 
-    println!("Found {} images", imgs.len());
+    println!("  Found {} images", imgs.len());
 
     let path = get_path(&html);
     std::fs::create_dir_all(&path).expect("created gallery folder");
 
     for (i, link) in imgs.iter().enumerate() {
-        print!("\rDownloading [{}] of [{}]", i + 1, imgs.len());
+        print!("\r  Downloading [{}] of [{}]", i + 1, imgs.len());
         get_image(link, client, &path, i).await;
     }
     println!();
@@ -131,8 +131,6 @@ fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
 }
 
 async fn get_imgs_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
-    println!("Getting links from page {page_idx}");
-
     let res = client.get(url).send().await.expect("GET request succesful");
     let body = res.text().await.expect("get the response text");
     let html = Html::parse_document(&body);
