@@ -134,6 +134,11 @@ async fn download_album(url: &str, client: &Client) {
 
     let mut imgs = get_imgs_from_url(url, client, 1).await;
 
+    // Do nothing with an empty album
+    if imgs.is_empty() {
+        return;
+    }
+
     for i in &mut imgs {
         i.remove_matches("thumb_");
         i.insert(0, '/');
