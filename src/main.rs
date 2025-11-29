@@ -3,7 +3,7 @@
 #![warn(clippy::pedantic)]
 use std::{fs::File, io::Write};
 
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use scraper::{Html, Selector};
 
 // 1st page:
@@ -19,6 +19,28 @@ async fn main() {
     let url = std::env::args().nth(1).expect("URL should be provided");
     let client = Client::new();
 
+    // Determine if to read url's from file at path url instead
+    let url_exists = match client.get(&url).send().await {
+        Ok(res) => res.status() == StatusCode::OK,
+        Err(_) => false,
+    };
+
+    if url_exists {
+        download_url(&url, &client).await;
+    } else {
+        match std::fs::read_to_string(url) {
+            Ok(s) => {
+                let lines = s.split('\n');
+                for l in lines {
+                    download_url(&l, &client).await;
+                }
+            }
+            Err(_) => println!("Couldn't read file"),
+        }
+    }
+}
+
+async fn download_url(url: &str, client: &Client) {
     if url.contains("/thumbnails.php") {
         download_album(&url, &client).await;
     } else if url.contains("/index.php?cat=") {
