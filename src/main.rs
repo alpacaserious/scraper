@@ -57,12 +57,46 @@ async fn download_category(url: &str, client: &Client) {
     let base_url = url.split_at(base_idx).0;
 
     let albums = get_alb_links(url, client, 1).await;
-    println!("Found {} albums", albums.len());
 
-    for (i, a) in albums.iter().enumerate() {
-        println!("Downloading album [{}] of [{}]", i + 1, albums.len());
-        download_album(&format!("{base_url}/{a}"), client).await;
+    // If we find no albums we are in a category that only contains other
+    // categories, so we need to recursively call ourselves.
+    if albums.is_empty() {
+        let cats = get_cat_links(url, client, 1).await;
+
+        for c in cats {
+            Box::pin(download_category(&format!("{base_url}/{c}"), client)).await;
+        }
+    } else {
+        println!("Found {} albums", albums.len());
+
+        for (i, a) in albums.iter().enumerate() {
+            println!("Downloading album [{}] of [{}]", i + 1, albums.len());
+            download_album(&format!("{base_url}/{a}"), client).await;
+        }
     }
+}
+
+async fn get_cat_links(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
+    let res = client.get(url).send().await.expect("GET request succesful");
+
+    let body = res.text().await.expect("get the response text");
+    let document = Html::parse_document(&body);
+    let cat_links = Selector::parse(".catlink > a").expect("parsed to find album links");
+
+    let next_page_links = match get_next_page(&document, page_idx) {
+        Some(n) => {
+            let next_url = format!("{url}&page={n}");
+            Box::pin(get_alb_links(&next_url, client, page_idx + 1)).await
+        }
+        None => vec![],
+    };
+
+    document
+        .select(&cat_links)
+        .filter_map(|l| l.attr("href"))
+        .map(std::string::ToString::to_string)
+        .chain(next_page_links)
+        .collect()
 }
 
 async fn get_alb_links(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
