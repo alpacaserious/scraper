@@ -28,18 +28,14 @@ async fn main() {
     if url_exists {
         download_url(&url, &client).await;
     } else {
-        match std::fs::read_to_string(url) {
-            Ok(s) => {
-                let lines = s.split('\n');
-                for l in lines {
-                    download_url(&l, &client).await;
-                }
-            }
-            Err(_) => println!("Couldn't read file"),
+        let lines = std::fs::read_to_string(url).expect("Read file");
+        for l in lines.split('\n') {
+            download_url(&l, &client).await;
         }
     }
 }
 
+/// Download from a category or an album.
 async fn download_url(url: &str, client: &Client) {
     if url.contains("/thumbnails.php") {
         download_album(&url, &client).await;
@@ -50,6 +46,7 @@ async fn download_url(url: &str, client: &Client) {
     }
 }
 
+/// Download everything in a category at `url`.
 async fn download_category(url: &str, client: &Client) {
     let base_idx = url
         .find("/index.php")
@@ -76,6 +73,9 @@ async fn download_category(url: &str, client: &Client) {
     }
 }
 
+/// Returns all subcategory links found at `url`.
+///
+/// If the category has multiple pages, this function is called recursively.
 async fn get_cat_links(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
     let res = client.get(url).send().await.expect("GET request succesful");
 
@@ -86,7 +86,7 @@ async fn get_cat_links(url: &str, client: &Client, page_idx: usize) -> Vec<Strin
     let next_page_links = match get_next_page(&document, page_idx) {
         Some(n) => {
             let next_url = format!("{url}&page={n}");
-            Box::pin(get_alb_links(&next_url, client, page_idx + 1)).await
+            Box::pin(get_cat_links(&next_url, client, page_idx + 1)).await
         }
         None => vec![],
     };
@@ -99,6 +99,9 @@ async fn get_cat_links(url: &str, client: &Client, page_idx: usize) -> Vec<Strin
         .collect()
 }
 
+/// Returns all album links found at `url`.
+///
+/// If the category has multiple pages, this function is called recursively.
 async fn get_alb_links(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
     let res = client.get(url).send().await.expect("GET request succesful");
 
@@ -122,6 +125,11 @@ async fn get_alb_links(url: &str, client: &Client, page_idx: usize) -> Vec<Strin
         .collect()
 }
 
+/// Downloads all images from album at `url`.
+///
+/// Creates a directory path, including parents, for downloaded album.
+/// For example:
+/// `url = "root/Photoshoots/2025/Vogue"` would create path `./Photoshoots/2025/Vogue`.
 async fn download_album(url: &str, client: &Client) {
     let base_idx = url
         .find("/thumbnails")
@@ -157,7 +165,7 @@ async fn download_album(url: &str, client: &Client) {
     println!();
 }
 
-/// From a given HTML, for example returns `Public Appearances/2024/Gallery_Title`
+/// From a given HTML, for example returns `Public Appearances/2024/Gallery_Title/`
 fn get_path(html: &Html) -> String {
     let paths = Selector::parse("td > .statlink > a").expect("parsed album path");
     let mut path_elems: Vec<String> = html
@@ -191,6 +199,9 @@ fn get_next_page(html: &Html, page_idx: usize) -> Option<usize> {
         .find(|i| *i == page_idx + 1)
 }
 
+/// Returns all image links found at `url`.
+///
+/// If the album has multiple pages, this function is called recursively.
 async fn get_imgs_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<String> {
     let res = client.get(url).send().await.expect("GET request succesful");
     let body = res.text().await.expect("get the response text");
