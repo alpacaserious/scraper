@@ -30,7 +30,7 @@ async fn main() {
     } else {
         let lines = std::fs::read_to_string(url).expect("Read file");
         for l in lines.split('\n') {
-            download_url(&l, &client).await;
+            download_url(l, &client).await;
         }
     }
 }
@@ -38,9 +38,9 @@ async fn main() {
 /// Download from a category or an album.
 async fn download_url(url: &str, client: &Client) {
     if url.contains("/thumbnails.php") {
-        download_album(&url, &client).await;
+        download_album(url, client).await;
     } else if url.contains("/index.php?cat=") {
-        download_category(&url, &client).await;
+        download_category(url, client).await;
     } else {
         println!("Unsupported URL");
     }
@@ -160,7 +160,7 @@ async fn download_album(url: &str, client: &Client) {
 
     for (i, link) in imgs.iter().enumerate() {
         print!("\r  Downloading [{}] of [{}]", i + 1, imgs.len());
-        get_image(link, client, &path, i).await;
+        download_image(link, client, &path, i).await;
     }
     println!();
 }
@@ -225,7 +225,7 @@ async fn get_imgs_from_url(url: &str, client: &Client, page_idx: usize) -> Vec<S
         .collect()
 }
 
-async fn get_image(url: &str, client: &Client, gallery: &str, idx: usize) {
+async fn download_image(url: &str, client: &Client, gallery: &str, idx: usize) {
     let res = client.get(url).send().await.expect("GET request succesful");
     let data = res.bytes().await.expect("get the response bytes");
 
